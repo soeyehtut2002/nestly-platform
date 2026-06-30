@@ -46,9 +46,27 @@ app.use(helmet({
   hsts: { maxAge: 31536000, includeSubDomains: true, preload: true }
 }));
 
-// 2. Configure CORS
+// 2. Configure CORS with dynamic origin authorization for localhost and Render subdomains
+const allowedOrigins = ['http://localhost:5175', 'http://127.0.0.1:5175'];
+if (process.env.ALLOWED_ORIGINS) {
+  process.env.ALLOWED_ORIGINS.split(',').forEach(o => allowedOrigins.push(o.trim()));
+}
+
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : ['http://localhost:5175', 'http://127.0.0.1:5175'],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // Allow non-browser requests
+    
+    const isAllowed = allowedOrigins.includes(origin) || 
+                      origin.endsWith('.onrender.com') || 
+                      /^http:\/\/localhost:\d+$/.test(origin) ||
+                      /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
+                      
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Condo-ID', 'x-condo-id'],
   credentials: true
