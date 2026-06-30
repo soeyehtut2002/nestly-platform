@@ -595,3 +595,13 @@ model Notification {
   @@index([userId])
   @@index([isRead])
 }
+
+model AdBanner {
+  id          String   @id @default(uuid())
+  imageUrl    String
+  linkUrl     String?
+  title       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

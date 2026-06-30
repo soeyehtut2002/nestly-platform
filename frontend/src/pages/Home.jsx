@@ -13,6 +13,8 @@ const Home = () => {
 
   const [searchVal, setSearchVal] = useState('');
   const [popularItems, setPopularItems] = useState([]);
+  const [banners, setBanners] = useState([]);
+  const [activeBannerIdx, setActiveBannerIdx] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const getActiveCondoName = () => {
@@ -31,9 +33,28 @@ const Home = () => {
     }
   };
 
+  const fetchBanners = async () => {
+    try {
+      const data = await api.get('/admin/banners');
+      setBanners(data);
+    } catch (err) {
+      console.warn('Failed to load active banners:', err.message);
+    }
+  };
+
   useEffect(() => {
     fetchPopularItems();
+    fetchBanners();
   }, [activeCondoId]);
+
+  // Rotate banners automatically if there are multiple
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const timer = setInterval(() => {
+      setActiveBannerIdx((prev) => (prev + 1) % banners.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [banners]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -67,34 +88,105 @@ const Home = () => {
         </p>
       </div>
 
-      {/* Hero Welcome banner with Condo image illustration */}
-      <div className="hero-box">
-        <div className="hero-text-side">
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.3rem',
-            background: 'rgba(0, 122, 83, 0.1)',
-            padding: '0.2rem 0.5rem',
-            borderRadius: '4px',
-            fontSize: '0.58rem',
-            fontWeight: 800,
-            color: 'var(--primary)',
-            textTransform: 'uppercase',
-            marginBottom: '0.5rem'
-          }}>
-            <Sparkles size={8} fill="var(--primary)" />
-            Regent Home App
+      {/* Dynamic Ad Banner Carousel */}
+      {banners.length > 0 ? (
+        <div 
+          className="hero-box" 
+          style={{ position: 'relative', cursor: banners[activeBannerIdx].linkUrl ? 'pointer' : 'default', minHeight: '160px' }} 
+          onClick={() => {
+            if (banners[activeBannerIdx].linkUrl) {
+              navigate(banners[activeBannerIdx].linkUrl);
+            }
+          }}
+        >
+          <div className="hero-text-side">
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              background: 'rgba(0, 122, 83, 0.1)',
+              padding: '0.2rem 0.5rem',
+              borderRadius: '4px',
+              fontSize: '0.58rem',
+              fontWeight: 800,
+              color: 'var(--primary)',
+              textTransform: 'uppercase',
+              marginBottom: '0.5rem'
+            }}>
+              <Sparkles size={8} fill="var(--primary)" />
+              Sponsored Ad
+            </div>
+            <h2>{banners[activeBannerIdx].title || 'Nestly Highlights'}</h2>
+            <p>Explore verified neighborhood deals and announcements.</p>
           </div>
-          <h2>Everything you need, right here at home.</h2>
-          <p>Local marketplace & home runners for verified residents.</p>
+          <img 
+            src={banners[activeBannerIdx].imageUrl} 
+            alt="Ad Banner" 
+            className="hero-image-side"
+            style={{ objectFit: 'cover' }}
+          />
+          {/* Carousel dots indicators */}
+          {banners.length > 1 && (
+            <div 
+              style={{
+                position: 'absolute',
+                bottom: '0.75rem',
+                left: '1.5rem',
+                display: 'flex',
+                gap: '0.3rem',
+                zIndex: 10
+              }} 
+              onClick={(e) => e.stopPropagation()}
+            >
+              {banners.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setActiveBannerIdx(idx)}
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    padding: 0,
+                    border: 'none',
+                    background: idx === activeBannerIdx ? 'var(--primary)' : 'rgba(0, 0, 0, 0.2)',
+                    cursor: 'pointer',
+                    outline: 'none'
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
-        <img 
-          src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=400&auto=format&fit=crop" 
-          alt="Condo Building" 
-          className="hero-image-side"
-        />
-      </div>
+      ) : (
+        /* Fallback Static Hero Banner */
+        <div className="hero-box">
+          <div className="hero-text-side">
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              background: 'rgba(0, 122, 83, 0.1)',
+              padding: '0.2rem 0.5rem',
+              borderRadius: '4px',
+              fontSize: '0.58rem',
+              fontWeight: 800,
+              color: 'var(--primary)',
+              textTransform: 'uppercase',
+              marginBottom: '0.5rem'
+            }}>
+              <Sparkles size={8} fill="var(--primary)" />
+              Regent Home App
+            </div>
+            <h2>Everything you need, right here at home.</h2>
+            <p>Local marketplace & home runners for verified residents.</p>
+          </div>
+          <img 
+            src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=400&auto=format&fit=crop" 
+            alt="Condo Building" 
+            className="hero-image-side"
+          />
+        </div>
+      )}
 
       {/* Quick Access Categories Grid */}
       <div style={{ marginBottom: '2rem' }}>

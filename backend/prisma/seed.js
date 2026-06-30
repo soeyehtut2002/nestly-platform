@@ -28,6 +28,7 @@ async function main() {
   await prisma.lostFound.deleteMany({});
   await prisma.announcement.deleteMany({});
   await prisma.category.deleteMany({});
+  await prisma.adBanner.deleteMany({});
   
   // Existing models
   await prisma.moduleSetting.deleteMany({});
@@ -212,6 +213,17 @@ async function main() {
       legalAffirmation: true
     }
   });
+
+  // 5. Seed default advertisement banners
+  await prisma.adBanner.create({
+    data: {
+      title: 'Welcome to Nestly SaaS!',
+      imageUrl: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&q=80',
+      linkUrl: '/legal/guidelines',
+      isActive: true
+    }
+  });
+  console.log('Seeded default advertisement banners.');
 
   console.log('Seeded active accounts and isolated listings for both condominiums.');
   console.log('Database Seeding Completed Successfully.');

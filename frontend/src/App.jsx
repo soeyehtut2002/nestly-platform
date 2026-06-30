@@ -13,6 +13,7 @@ import RunnerBoard from './pages/RunnerBoard';
 import ChatHub from './pages/ChatHub';
 import SellerDashboard from './pages/SellerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import Profile from './pages/Profile';
 import OrderHistory from './pages/OrderHistory';
 import Legal from './pages/Legal';
@@ -73,6 +74,12 @@ const AppRoutes = () => {
         <Route path="/admin" element={
           <PrivateRoute>
             <AdminDashboard />
+          </PrivateRoute>
+        } />
+
+        <Route path="/super-admin" element={
+          <PrivateRoute>
+            <SuperAdminDashboard />
           </PrivateRoute>
         } />
 

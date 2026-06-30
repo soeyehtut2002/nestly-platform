@@ -364,6 +364,153 @@ const getAuditLogs = async (req, res) => {
   }
 };
 
+// --- Super Admin Capabilities ---
+
+// Public advertisement banners listing
+const getBanners = async (req, res) => {
+  try {
+    const banners = await prisma.adBanner.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' }
+    });
+    return res.json(banners);
+  } catch (error) {
+    console.error('Get Banners Error:', error);
+    return res.status(500).json({ error: 'Failed to retrieve banners.' });
+  }
+};
+
+// Create new ad banner
+const createBanner = async (req, res) => {
+  try {
+    const { title, imageUrl, linkUrl } = req.body;
+    if (!imageUrl) return res.status(400).json({ error: 'Banner image URL is required.' });
+    
+    const banner = await prisma.adBanner.create({
+      data: { title, imageUrl, linkUrl }
+    });
+    return res.status(201).json(banner);
+  } catch (error) {
+    console.error('Create Banner Error:', error);
+    return res.status(500).json({ error: 'Failed to create banner.' });
+  }
+};
+
+// Update existing ad banner
+const updateBanner = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, imageUrl, linkUrl, isActive } = req.body;
+    
+    const banner = await prisma.adBanner.update({
+      where: { id },
+      data: { title, imageUrl, linkUrl, isActive }
+    });
+    return res.json(banner);
+  } catch (error) {
+    console.error('Update Banner Error:', error);
+    return res.status(500).json({ error: 'Failed to update banner.' });
+  }
+};
+
+// Delete ad banner
+const deleteBanner = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.adBanner.delete({ where: { id } });
+    return res.json({ message: 'Banner deleted successfully.' });
+  } catch (error) {
+    console.error('Delete Banner Error:', error);
+    return res.status(500).json({ error: 'Failed to delete banner.' });
+  }
+};
+
+// Get all users in the system across all condos
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        roomNumber: true,
+        phoneNumber: true,
+        role: true,
+        isSuspended: true,
+        condominium: { select: { name: true } }
+      },
+      orderBy: { fullName: 'asc' }
+    });
+    return res.json(users);
+  } catch (error) {
+    console.error('Get All Users Error:', error);
+    return res.status(500).json({ error: 'Failed to retrieve users.' });
+  }
+};
+
+// Update user role (SaaS admin action)
+const updateUserRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+    
+    if (!['SYSTEM_ADMIN', 'CONDO_ADMIN', 'RESIDENT', 'SELLER'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid user role specified.' });
+    }
+    
+    const user = await prisma.user.update({
+      where: { id },
+      data: { role }
+    });
+    
+    await prisma.auditLog.create({
+      data: {
+        condominiumId: user.condominiumId,
+        adminId: req.user.id,
+        actionType: 'UPDATE_ROLE',
+        targetId: `User-${user.id}`,
+        details: `Updated user "${user.fullName}" role to: ${role}`
+      }
+    });
+    
+    return res.json({ message: 'User role updated successfully.', user });
+  } catch (error) {
+    console.error('Update User Role Error:', error);
+    return res.status(500).json({ error: 'Failed to update user role.' });
+  }
+};
+
+// Get all condominiums in registry
+const getAllCondos = async (req, res) => {
+  try {
+    const condos = await prisma.condominium.findMany({
+      orderBy: { name: 'asc' }
+    });
+    return res.json(condos);
+  } catch (error) {
+    console.error('Get All Condos Error:', error);
+    return res.status(500).json({ error: 'Failed to retrieve condos.' });
+  }
+};
+
+// Update condominium details / toggle active status
+const updateCondoStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive, name, address, province } = req.body;
+    
+    const condo = await prisma.condominium.update({
+      where: { id },
+      data: { isActive, name, address, province }
+    });
+    
+    return res.json({ message: 'Condominium updated successfully.', condo });
+  } catch (error) {
+    console.error('Update Condo Error:', error);
+    return res.status(500).json({ error: 'Failed to update condominium.' });
+  }
+};
+
 module.exports = {
   createCondo,
   submitReport,
@@ -374,5 +521,13 @@ module.exports = {
   suspendUser,
   getReports,
   resolveReport,
-  getAuditLogs
+  getAuditLogs,
+  getBanners,
+  createBanner,
+  updateBanner,
+  deleteBanner,
+  getAllUsers,
+  updateUserRole,
+  getAllCondos,
+  updateCondoStatus
 };
