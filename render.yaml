@@ -1,0 +1,42 @@
+services:
+  # Nestly Backend Express Web Service
+  - type: web
+    name: nestly-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npx prisma generate
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 5001
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # User will paste their Neon URL in the Render UI
+      - key: JWT_SECRET
+        generateValue: true # Render will auto-generate a secure key
+
+  # Nestly Frontend React Static Site
+  - type: web
+    name: nestly-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        src: /*
+        dest: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: nestly-backend
+          property: host
+        value: https://${host}/api
+      - key: VITE_SOCKET_URL
+        fromService:
+          type: web
+          name: nestly-backend
+          property: host
+        value: https://${host}
