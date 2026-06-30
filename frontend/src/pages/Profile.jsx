@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import { api } from '../services/api';
-import { User, Mail, Home, Phone, ShieldCheck, Shield, ChevronRight, LogOut, FileText, Edit, Save, X } from 'lucide-react';
+import { User, Mail, Home, Phone, ShieldCheck, Shield, ChevronRight, LogOut, FileText, Edit, Save, X, MessageSquare, ShoppingBag } from 'lucide-react';
 
 const Profile = () => {
   const { user, setUser, condos, logout, showToast } = useApp();
@@ -276,6 +276,28 @@ const Profile = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <MessageSquare size={18} style={{ color: '#2196f3' }} />
             <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>My Conversations</span>
+          </div>
+          <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
+        </div>
+        
+        {/* Transaction History Shortcut */}
+        <div 
+          onClick={() => navigate('/orders')}
+          style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            padding: '1rem', 
+            cursor: 'pointer',
+            borderRadius: '10px',
+            transition: 'background var(--transition-fast)'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-primary)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <ShoppingBag size={18} style={{ color: 'var(--primary)' }} />
+            <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Transaction History</span>
           </div>
           <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
         </div>

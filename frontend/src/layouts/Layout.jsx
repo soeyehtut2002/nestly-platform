@@ -1,12 +1,65 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
+import { api } from '../services/api';
 import { Home as HomeIcon, ShoppingBag, MessageSquare, User, Bell, ChevronDown } from 'lucide-react';
 
 const Layout = ({ children }) => {
   const { user, condos, activeCondoId, selectCondo, logout } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const [notifications, setNotifications] = useState([]);
+  const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  const fetchNotifications = async () => {
+    if (!user) return;
+    try {
+      const data = await api.get('/notifications');
+      setNotifications(data);
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err.message);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setNotifDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleMarkAsRead = async (id) => {
+    try {
+      await api.put(`/notifications/${id}/read`, {});
+      fetchNotifications();
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err.message);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await api.put('/notifications/read-all', {});
+      fetchNotifications();
+    } catch (err) {
+      console.error('Failed to mark all as read:', err.message);
+    }
+  };
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const handleCondoChange = (e) => {
     selectCondo(e.target.value);
@@ -55,9 +108,52 @@ const Layout = ({ children }) => {
         </div>
 
         {/* Notification Bell */}
-        <button style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer' }}>
-          <Bell size={20} />
-        </button>
+        {user && (
+          <div className="notification-dropdown-container" ref={dropdownRef}>
+            <button 
+              onClick={() => setNotifDropdownOpen(!notifDropdownOpen)} 
+              style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', position: 'relative', padding: '0.25rem', display: 'flex', alignItems: 'center' }}
+            >
+              <Bell size={20} />
+              {unreadCount > 0 && (
+                <span className="notification-badge">{unreadCount}</span>
+              )}
+            </button>
+            
+            {notifDropdownOpen && (
+              <div className="notification-dropdown">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', borderBottom: '1px solid rgba(0,0,0,0.06)', background: 'var(--bg-tertiary)' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>Notifications</span>
+                  {unreadCount > 0 && (
+                    <button onClick={handleMarkAllAsRead} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                      Mark all as read
+                    </button>
+                  )}
+                </div>
+                
+                {notifications.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                    No new notifications
+                  </div>
+                ) : (
+                  notifications.slice(0, 10).map((n) => (
+                    <div 
+                      key={n.id} 
+                      onClick={() => handleMarkAsRead(n.id)}
+                      className={`notification-item ${!n.isRead ? 'unread' : ''}`}
+                    >
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{n.title}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '0.1rem' }}>{n.message}</div>
+                      <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                        {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       {/* Main Content Area constrained to mobile layout (480px) */}

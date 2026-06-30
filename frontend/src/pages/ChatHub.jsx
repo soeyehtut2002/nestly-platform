@@ -78,6 +78,8 @@ const ChatHub = () => {
     try {
       const data = await api.get(`/chats/${chat.id}/messages`);
       setMessages(data);
+      // Refresh conversation list to clear unread badge
+      fetchChats();
     } catch (err) {
       showToast(err.message || 'Failed to load message history.', 'error');
     }
@@ -167,14 +169,21 @@ const ChatHub = () => {
                       Room {getPartnerRoom(chat)}
                     </span>
                   </div>
-                  <div style={{
-                    fontSize: '0.8rem',
-                    color: 'var(--text-secondary)',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis'
-                  }}>
-                    {lastMsg ? lastMsg.messageText : 'Start chatting...'}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+                    <div style={{
+                      fontSize: '0.8rem',
+                      color: isSelected ? 'rgba(255, 255, 255, 0.7)' : 'var(--text-secondary)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      flex: 1,
+                      marginRight: '0.5rem'
+                    }}>
+                      {lastMsg ? lastMsg.messageText : 'Start chatting...'}
+                    </div>
+                    {lastMsg && lastMsg.senderId !== user.id && !lastMsg.isRead && !isSelected && (
+                      <span className="chat-unread-badge">New</span>
+                    )}
                   </div>
                 </div>
               );

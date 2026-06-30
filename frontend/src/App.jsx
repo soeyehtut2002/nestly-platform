@@ -14,6 +14,7 @@ import ChatHub from './pages/ChatHub';
 import SellerDashboard from './pages/SellerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Profile from './pages/Profile';
+import OrderHistory from './pages/OrderHistory';
 import Legal from './pages/Legal';
 import VerifyEmail from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
@@ -60,6 +61,12 @@ const AppRoutes = () => {
         <Route path="/profile" element={
           <PrivateRoute>
             <Profile />
+          </PrivateRoute>
+        } />
+        
+        <Route path="/orders" element={
+          <PrivateRoute>
+            <OrderHistory />
           </PrivateRoute>
         } />
         

@@ -115,6 +115,18 @@ const getMessages = async (req, res) => {
       }
     });
 
+    // Mark messages from the other user as read
+    await prisma.message.updateMany({
+      where: {
+        chatId: chatId,
+        senderId: { not: userId },
+        isRead: false
+      },
+      data: {
+        isRead: true
+      }
+    });
+
     return res.json(messages);
   } catch (error) {
     console.error('Fetch Messages Error:', error);

@@ -15,6 +15,9 @@ const ListingDetails = () => {
   const [reportReason, setReportReason] = useState('');
   const [submittingReport, setSubmittingReport] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   const fetchListing = async () => {
     setLoading(true);
@@ -91,6 +94,31 @@ const ListingDetails = () => {
       showToast(err.message || 'Failed to submit report.', 'error');
     } finally {
       setSubmittingReport(false);
+    }
+  };
+  
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (!user) {
+      showToast('Please log in to submit a review.', 'error');
+      navigate('/login');
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      await api.post('/reviews', {
+        sellerId: listing.seller.id,
+        rating: reviewRating,
+        reviewText: reviewText
+      });
+      showToast('Review submitted successfully!', 'success');
+      setReviewText('');
+      setReviewRating(5);
+      fetchListing(); // Refresh to update average rating and list
+    } catch (err) {
+      showToast(err.message || 'Failed to submit review.', 'error');
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -230,6 +258,50 @@ const ListingDetails = () => {
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{r.reviewText}</p>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Write a Review Form */}
+            {user && listing.seller && user.id !== listing.seller.user.id && (
+              <div style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '1.25rem' }}>
+                <h4 style={{ marginBottom: '0.75rem', fontSize: '0.95rem', color: '#fff' }}>Write a Review</h4>
+                <form onSubmit={handleSubmitReview}>
+                  <div className="star-rating-input" style={{ color: 'var(--text-amber)' }}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        size={22}
+                        className="star-icon"
+                        fill={star <= reviewRating ? 'var(--text-amber)' : 'none'}
+                        color="var(--text-amber)"
+                        onClick={() => setReviewRating(star)}
+                      />
+                    ))}
+                  </div>
+                  <div className="form-group" style={{ marginBottom: '1rem' }}>
+                    <textarea
+                      className="form-input"
+                      style={{ 
+                        width: '100%', 
+                        height: '80px', 
+                        borderRadius: 'var(--radius-sm)', 
+                        padding: '0.5rem', 
+                        background: 'var(--bg-primary)', 
+                        border: '1px solid rgba(0,0,0,0.08)',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.85rem'
+                      }}
+                      placeholder="Write your experience with this neighbor..."
+                      value={reviewText}
+                      onChange={(e) => setReviewText(e.target.value)}
+                      maxLength={500}
+                      required
+                    />
+                  </div>
+                  <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', width: '100%', justifyContent: 'center' }} disabled={submittingReview}>
+                    {submittingReview ? 'Submitting...' : 'Submit Review'}
+                  </button>
+                </form>
               </div>
             )}
           </div>

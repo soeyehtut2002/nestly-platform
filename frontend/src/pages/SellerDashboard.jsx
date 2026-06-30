@@ -12,6 +12,14 @@ const SellerDashboard = () => {
   const [shopName, setShopName] = useState('');
   const [agreementSigned, setAgreementSigned] = useState(false);
   const [submittingApp, setSubmittingApp] = useState(false);
+  
+  // Document Upload States
+  const [idCardUrl, setIdCardUrl] = useState('');
+  const [proofOfResidencyUrl, setProofOfResidencyUrl] = useState('');
+  const [uploadingIdCard, setUploadingIdCard] = useState(false);
+  const [uploadingResidency, setUploadingResidency] = useState(false);
+  const [idCardProgress, setIdCardProgress] = useState(0);
+  const [residencyProgress, setResidencyProgress] = useState(0);
 
   // Listing Form States
   const [showListingForm, setShowListingForm] = useState(false);
@@ -41,6 +49,44 @@ const SellerDashboard = () => {
       showToast(err.message || 'Image upload failed.', 'error');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleIdCardUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadingIdCard(true);
+    setIdCardProgress(0);
+    try {
+      const url = await api.uploadImage(file, (progress) => {
+        setIdCardProgress(progress);
+      });
+      setIdCardUrl(url);
+      showToast('ID card document uploaded successfully!', 'success');
+    } catch (err) {
+      showToast(err.message || 'ID Card upload failed.', 'error');
+    } finally {
+      setUploadingIdCard(false);
+    }
+  };
+
+  const handleResidencyUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadingResidency(true);
+    setResidencyProgress(0);
+    try {
+      const url = await api.uploadImage(file, (progress) => {
+        setResidencyProgress(progress);
+      });
+      setProofOfResidencyUrl(url);
+      showToast('Residency document uploaded successfully!', 'success');
+    } catch (err) {
+      showToast(err.message || 'Residency document upload failed.', 'error');
+    } finally {
+      setUploadingResidency(false);
     }
   };
 
@@ -75,14 +121,17 @@ const SellerDashboard = () => {
     e.preventDefault();
     if (!shopName) return showToast('Please enter a shop name.', 'error');
     if (!agreementSigned) return showToast('You must agree to the Seller Agreement.', 'error');
+    if (!idCardUrl || !proofOfResidencyUrl) {
+      return showToast('Please upload both your ID Card and Proof of Residency.', 'error');
+    }
 
     setSubmittingApp(true);
     try {
       await api.post('/sellers/apply', {
         shopName,
         agreementSigned,
-        idCardUrl: 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23', // Mock ID upload
-        proofOfResidencyUrl: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa' // Mock residency proof
+        idCardUrl,
+        proofOfResidencyUrl
       });
       showToast('Application submitted successfully.', 'success');
       await fetchProfile(); // refresh JWT roles in context
@@ -198,17 +247,50 @@ const SellerDashboard = () => {
               <p style={{ marginBottom: '0.5rem' }}>
                 To comply with security audits, our team will verify your Room Number matches building lease/utility documentation. (Document uploads are processed securely under PDPA).
               </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.75rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '0.75rem' }}>
                 <div>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ID Card / Passport</span>
-                  <div style={{ padding: '0.5rem', background: 'rgba(0,0,0,0.3)', border: '1px dashed var(--border-glass)', borderRadius: '4px', textAlign: 'center', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-                    Document Mock Secured
+                  <div className="file-upload-zone" style={{ padding: '1rem', fontSize: '0.75rem', marginTop: '0.25rem', border: '1px dashed var(--border-glass)' }}>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={handleIdCardUpload}
+                      style={{ display: 'none' }}
+                      id="idcard-file"
+                    />
+                    <label htmlFor="idcard-file" style={{ cursor: 'pointer', display: 'block', fontWeight: 600, color: 'var(--primary)' }}>
+                      {idCardUrl ? 'Change File' : 'Upload ID File'}
+                    </label>
+                    {uploadingIdCard ? (
+                      <div className="upload-progress-container">
+                        <div className="upload-progress-bar" style={{ width: `${idCardProgress}%` }}></div>
+                      </div>
+                    ) : idCardUrl ? (
+                      <div style={{ color: 'var(--secondary)', marginTop: '0.25rem' }}>✔ Uploaded</div>
+                    ) : null}
                   </div>
                 </div>
+
                 <div>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Proof of Condo Unit (Utility Bill)</span>
-                  <div style={{ padding: '0.5rem', background: 'rgba(0,0,0,0.3)', border: '1px dashed var(--border-glass)', borderRadius: '4px', textAlign: 'center', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-                    Proof Mock Secured
+                  <div className="file-upload-zone" style={{ padding: '1rem', fontSize: '0.75rem', marginTop: '0.25rem', border: '1px dashed var(--border-glass)' }}>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={handleResidencyUpload}
+                      style={{ display: 'none' }}
+                      id="residency-file"
+                    />
+                    <label htmlFor="residency-file" style={{ cursor: 'pointer', display: 'block', fontWeight: 600, color: 'var(--primary)' }}>
+                      {proofOfResidencyUrl ? 'Change File' : 'Upload Proof File'}
+                    </label>
+                    {uploadingResidency ? (
+                      <div className="upload-progress-container">
+                        <div className="upload-progress-bar" style={{ width: `${residencyProgress}%` }}></div>
+                      </div>
+                    ) : proofOfResidencyUrl ? (
+                      <div style={{ color: 'var(--secondary)', marginTop: '0.25rem' }}>✔ Uploaded</div>
+                    ) : null}
                   </div>
                 </div>
               </div>
