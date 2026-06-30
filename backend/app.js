@@ -79,10 +79,21 @@ app.get('/health', (req, res) => {
 
 // Serve frontend build static files in production if needed
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../frontend/dist')));
-  app.get(/.*/, (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
-  });
+  const fs = require('fs');
+  const distPath = path.join(__dirname, '../frontend/dist');
+  const indexPath = path.join(distPath, 'index.html');
+
+  if (fs.existsSync(indexPath)) {
+    app.use(express.static(distPath));
+    app.get(/.*/, (req, res) => {
+      res.sendFile(indexPath);
+    });
+  } else {
+    // Graceful fallback for separate frontend/backend deployments
+    app.get('/', (req, res) => {
+      res.json({ status: 'ok', message: 'Nestly SaaS API Service active' });
+    });
+  }
 }
 
 // Error handling middleware
