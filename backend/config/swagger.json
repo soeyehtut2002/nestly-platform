@@ -1,0 +1,422 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Nestly REST API Documentation",
+    "version": "1.0.0",
+    "description": "Complete production-ready API documentation for Nestly, the multi-tenant condominium marketplace platform."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5001",
+      "description": "Local development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "summary": "Register a new user account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password", "fullName", "roomNumber", "pdpaConsent"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 },
+                  "fullName": { "type": "string" },
+                  "roomNumber": { "type": "string" },
+                  "phoneNumber": { "type": "string" },
+                  "pdpaConsent": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User account created successfully." },
+          "400": { "description": "Invalid input parameters or validation failure." }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "Log in to an existing account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login successful. Returns access and refresh token." },
+          "401": { "description": "Invalid credentials." },
+          "403": { "description": "Email is unverified." }
+        }
+      }
+    },
+    "/api/auth/profile": {
+      "get": {
+        "summary": "Get authenticated user profile details",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Returns profile details." },
+          "401": { "description": "Token missing or invalid." }
+        }
+      }
+    },
+    "/api/users/profile": {
+      "get": {
+        "summary": "Get authenticated user profile details (User domain)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Returns profile details." },
+          "401": { "description": "Token missing or invalid." }
+        }
+      },
+      "put": {
+        "summary": "Update user profile details",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fullName": { "type": "string" },
+                  "roomNumber": { "type": "string" },
+                  "phoneNumber": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Profile updated successfully." }
+        }
+      }
+    },
+    "/api/users/avatar": {
+      "post": {
+        "summary": "Upload and update user avatar URL",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["avatarUrl"],
+                "properties": {
+                  "avatarUrl": { "type": "string", "format": "uri" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Avatar updated successfully." }
+        }
+      }
+    },
+    "/api/listings": {
+      "get": {
+        "summary": "Fetch listings feed (condominium isolated)",
+        "parameters": [
+          { "name": "X-Condo-ID", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "category", "in": "query", "schema": { "type": "string" } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Returns a list of listings active in this condo." }
+        }
+      },
+      "post": {
+        "summary": "Create a new listing (verified sellers only)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title", "description", "price", "category", "legalAffirmation"],
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "price": { "type": "number" },
+                  "category": { "type": "string" },
+                  "images": { "type": "array", "items": { "type": "string" } },
+                  "legalAffirmation": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Listing created and sent to moderation." }
+        }
+      }
+    },
+    "/api/listings/favorites": {
+      "get": {
+        "summary": "Get authenticated user's favorite listings",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Returns list of favorited listings." }
+        }
+      }
+    },
+    "/api/listings/{id}": {
+      "get": {
+        "summary": "Get listing details by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Returns listing details." },
+          "404": { "description": "Listing not found." }
+        }
+      },
+      "put": {
+        "summary": "Update an existing listing (restricted to seller or admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "price": { "type": "number" },
+                  "category": { "type": "string" },
+                  "images": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Listing updated successfully." }
+        }
+      },
+      "delete": {
+        "summary": "Delete a listing (soft delete)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Listing deleted successfully." }
+        }
+      }
+    },
+    "/api/listings/{id}/favorite": {
+      "post": {
+        "summary": "Toggle favorite status on a listing",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Returns favorited state boolean." }
+        }
+      }
+    },
+    "/api/reviews": {
+      "post": {
+        "summary": "Submit a review for a seller",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["sellerId", "rating"],
+                "properties": {
+                  "sellerId": { "type": "string", "format": "uuid" },
+                  "rating": { "type": "integer", "minimum": 1, "maximum": 5 },
+                  "reviewText": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Review created successfully." }
+        }
+      }
+    },
+    "/api/reviews/{id}": {
+      "put": {
+        "summary": "Edit review contents",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["rating"],
+                "properties": {
+                  "rating": { "type": "integer", "minimum": 1, "maximum": 5 },
+                  "reviewText": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Review updated successfully." }
+        }
+      },
+      "delete": {
+        "summary": "Delete a review",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Review deleted successfully." }
+        }
+      }
+    },
+    "/api/chats/start": {
+      "post": {
+        "summary": "Initialize a new P2P conversation",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["sellerId"],
+                "properties": {
+                  "sellerId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Returns conversation details." }
+        }
+      }
+    },
+    "/api/chats": {
+      "get": {
+        "summary": "Get authenticated user conversations list",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Returns conversations list." }
+        }
+      }
+    },
+    "/api/chats/{chatId}/messages": {
+      "get": {
+        "summary": "Fetch conversation messages",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "chatId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Returns messages array." }
+        }
+      }
+    },
+    "/api/sellers/verify": {
+      "post": {
+        "summary": "Submit seller verification request",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["shopName"],
+                "properties": {
+                  "shopName": { "type": "string" },
+                  "idCardUrl": { "type": "string" },
+                  "proofOfResidencyUrl": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Verification request submitted." }
+        }
+      }
+    },
+    "/api/sellers/status": {
+      "get": {
+        "summary": "Check seller verification application status",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Returns current application status." }
+        }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "summary": "Fetch notifications list",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Returns user notifications." }
+        }
+      }
+    },
+    "/api/notifications/read-all": {
+      "put": {
+        "summary": "Mark all notifications as read",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "All notifications marked as read successfully." }
+        }
+      }
+    },
+    "/api/notifications/{id}/read": {
+      "put": {
+        "summary": "Mark specific notification as read",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Notification updated." }
+        }
+      }
+    }
+  }
+}

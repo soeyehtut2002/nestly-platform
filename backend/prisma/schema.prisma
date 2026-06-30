@@ -1,0 +1,597 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// CORE TENANCY & IAM MODULE
+// -------------------------------------------------------------
+
+model Condominium {
+  id             String          @id @default(uuid())
+  name           String          // e.g. "Regent Home Bangna"
+  address        String
+  province       String          @default("Bangkok")
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  
+  // Relations
+  users          User[]
+  sellers        Seller[]
+  listings       Listing[]
+  chats          Chat[]
+  reports        Report[]
+  auditLogs      AuditLog[]
+  facilities     Facility[]
+  parcels        Parcel[]
+  moduleConfigs  ModuleSetting[]
+  
+  // New Relations
+  categories     Category[]
+  orders         Order[]
+  foodOrders     FoodOrder[]
+  events         Event[]
+  lostFound      LostFound[]
+  announcements  Announcement[]
+}
+
+enum UserRole {
+  RESIDENT
+  SELLER
+  RUNNER
+  CONDO_ADMIN   // Condo-specific manager
+  SYSTEM_ADMIN  // Global SaaS admin
+}
+
+model User {
+  id              String         @id @default(uuid())
+  condominiumId   String
+  condominium     Condominium    @relation(fields: [condominiumId], references: [id])
+  email           String         @unique
+  passwordHash    String
+  fullName        String
+  roomNumber      String
+  phoneNumber     String?
+  avatarUrl       String?
+  role            UserRole       @default(RESIDENT)
+  isSuspended            Boolean                 @default(false)
+  pdpaConsent            Boolean                 @default(false)
+  isEmailVerified        Boolean                 @default(false)
+  deletedAt              DateTime?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  
+  // Auth Token Rotation & Sessions
+  refreshTokens          RefreshToken[]
+  emailVerificationToken EmailVerificationToken?
+  passwordResetTokens    PasswordResetToken[]
+  sessions               UserSession[]
+
+  // Relations
+  sellerProfile          Seller?
+  initiatedChats         Chat[]                  @relation("BuyerChats")
+  receivedChats          Chat[]                  @relation("SellerChats")
+  messages               Message[]
+  reviews                Review[]                @relation("UserReviews")
+  reportsFiled           Report[]                @relation("Reporter")
+  reportsAgainst         Report[]                @relation("ReportedUser")
+  reportsResolved        Report[]                @relation("Resolver")
+  auditLogs              AuditLog[]
+  bookings               Booking[]
+  parcelsReceived        Parcel[]                @relation("ParcelReceiver")
+
+  // New Relations
+  favorites              Favorite[]
+  buyerOrders            Order[]                 @relation("BuyerOrders")
+  sellerOrders           Order[]                 @relation("SellerOrders")
+  buyerFoodOrders        FoodOrder[]             @relation("BuyerFoodOrders")
+  sellerFoodOrders       FoodOrder[]             @relation("SellerFoodOrders")
+  serviceBookings        ServiceBooking[]
+  events                 Event[]
+  lostFoundItems         LostFound[]
+  announcements          Announcement[]
+  notifications          Notification[]
+
+  @@index([condominiumId])
+  @@index([email])
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g. "SYSTEM_ADMIN", "CONDO_ADMIN", "RESIDENT"
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserSession {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionToken  String      @unique
+  ipAddress     String?
+  userAgent     String?
+  expiresAt     DateTime
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([userId])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// -------------------------------------------------------------
+// VERIFIED P2P COMMERCE & SERVICES MODULE
+// -------------------------------------------------------------
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Seller {
+  id                  String             @id @default(uuid())
+  condominiumId       String
+  condominium         Condominium        @relation(fields: [condominiumId], references: [id])
+  userId              String             @unique
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shopName            String
+  verificationStatus  VerificationStatus @default(PENDING)
+  idCardUrl           String?            // Encrypted
+  proofOfResidencyUrl String?            // Encrypted
+  agreementSigned     Boolean            @default(false)
+  agreementSignedAt   DateTime?
+  verifiedAt          DateTime?
+  verifiedBy          String?
+  deletedAt           DateTime?
+  
+  listings            Listing[]
+  reviews             Review[]           @relation("SellerReviews")
+  foodMenus           FoodMenu[]
+  services            Service[]
+  verifications       SellerVerification[]
+
+  @@index([condominiumId])
+}
+
+enum ListingStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  REJECTED
+  DELETED
+}
+
+model Listing {
+  id               String        @id @default(uuid())
+  condominiumId    String
+  condominium      Condominium   @relation(fields: [condominiumId], references: [id])
+  sellerId         String
+  seller           Seller        @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  title            String
+  description      String
+  price            Decimal       @db.Decimal(10, 2)
+  category         String        // 'marketplace', 'services', 'runner', 'lost_and_found'
+  categoryId       String?
+  categoryRef      Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  images           String[]
+  status           ListingStatus @default(PENDING_APPROVAL)
+  legalAffirmation Boolean       @default(false)
+  deletedAt        DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  
+  reports          Report[]
+  listingImages    ListingImage[]
+  favorites        Favorite[]
+  orderItems       OrderItem[]
+
+  @@index([condominiumId, status])
+  @@index([category])
+  @@index([categoryId])
+  @@index([createdAt])
+}
+
+model Category {
+  id            String      @id @default(uuid())
+  name          String      // e.g., "Grocery", "Electronics", "Handyman"
+  description   String?
+  condominiumId String?
+  condominium   Condominium? @relation(fields: [condominiumId], references: [id], onDelete: Cascade)
+  listings      Listing[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([condominiumId])
+}
+
+model ListingImage {
+  id            String      @id @default(uuid())
+  listingId     String
+  listing       Listing     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  imageUrl      String
+  displayOrder  Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([listingId])
+}
+
+model Favorite {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId     String
+  listing       Listing     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@unique([userId, listingId])
+  @@index([userId])
+  @@index([listingId])
+}
+
+// -------------------------------------------------------------
+// COMMERCE MODULE (ORDERS)
+// -------------------------------------------------------------
+
+model Order {
+  id            String      @id @default(uuid())
+  condominiumId String
+  condominium   Condominium @relation(fields: [condominiumId], references: [id], onDelete: Cascade)
+  buyerId       String
+  buyer         User        @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Cascade)
+  sellerId      String
+  seller        User        @relation("SellerOrders", fields: [sellerId], references: [id], onDelete: Cascade)
+  totalPrice    Decimal     @db.Decimal(10, 2)
+  status        String      @default("PENDING") // PENDING, COMPLETED, CANCELLED
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  items         OrderItem[]
+
+  @@index([condominiumId])
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([status])
+}
+
+model OrderItem {
+  id            String      @id @default(uuid())
+  orderId       String
+  order         Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  listingId     String
+  listing       Listing     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  quantity      Int         @default(1)
+  price         Decimal     @db.Decimal(10, 2)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([orderId])
+  @@index([listingId])
+}
+
+// -------------------------------------------------------------
+// FOOD SERVICE MODULE
+// -------------------------------------------------------------
+
+model FoodMenu {
+  id            String      @id @default(uuid())
+  sellerId      String
+  seller        Seller      @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  price         Decimal     @db.Decimal(10, 2)
+  imageUrl      String?
+  isAvailable   Boolean     @default(true)
+  deletedAt     DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([sellerId])
+}
+
+model FoodOrder {
+  id            String      @id @default(uuid())
+  condominiumId String
+  condominium   Condominium @relation(fields: [condominiumId], references: [id], onDelete: Cascade)
+  buyerId       String
+  buyer         User        @relation("BuyerFoodOrders", fields: [buyerId], references: [id], onDelete: Cascade)
+  sellerId      String
+  seller        User        @relation("SellerFoodOrders", fields: [sellerId], references: [id], onDelete: Cascade)
+  status        String      @default("PENDING") // PENDING, COOKING, DELIVERING, COMPLETED, CANCELLED
+  totalPrice    Decimal     @db.Decimal(10, 2)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([condominiumId])
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([status])
+}
+
+// -------------------------------------------------------------
+// SERVICES MODULE
+// -------------------------------------------------------------
+
+model Service {
+  id            String      @id @default(uuid())
+  sellerId      String
+  seller        Seller      @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  price         Decimal     @db.Decimal(10, 2)
+  category      String      // e.g. "cleaning", "repair"
+  deletedAt     DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  bookings      ServiceBooking[]
+
+  @@index([sellerId])
+}
+
+model ServiceBooking {
+  id            String      @id @default(uuid())
+  serviceId     String
+  service       Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  customerId    String
+  customer      User        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  bookingTime   DateTime
+  status        String      @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([serviceId])
+  @@index([customerId])
+  @@index([status])
+}
+
+// -------------------------------------------------------------
+// COMMUNITY MODULE
+// -------------------------------------------------------------
+
+model Event {
+  id            String      @id @default(uuid())
+  condominiumId String
+  condominium   Condominium @relation(fields: [condominiumId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  startTime     DateTime
+  endTime       DateTime
+  creatorId     String
+  creator       User        @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([condominiumId])
+  @@index([creatorId])
+}
+
+model LostFound {
+  id            String      @id @default(uuid())
+  condominiumId String
+  condominium   Condominium @relation(fields: [condominiumId], references: [id], onDelete: Cascade)
+  title         String
+  description   String
+  itemType      String      // LOST or FOUND
+  status        String      @default("OPEN") // OPEN, RESOLVED
+  reporterId    String
+  reporter      User        @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([condominiumId])
+  @@index([reporterId])
+}
+
+model Announcement {
+  id            String      @id @default(uuid())
+  condominiumId String
+  condominium   Condominium @relation(fields: [condominiumId], references: [id], onDelete: Cascade)
+  title         String
+  content       String
+  authorId      String
+  author        User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([condominiumId])
+  @@index([authorId])
+}
+
+// -------------------------------------------------------------
+// COMMUNICATIONS MODULE (CHAT & NOTIFICATION)
+// -------------------------------------------------------------
+
+model Chat {
+  id             String      @id @default(uuid())
+  condominiumId  String
+  condominium    Condominium @relation(fields: [condominiumId], references: [id])
+  buyerId        String
+  buyer          User        @relation("BuyerChats", fields: [buyerId], references: [id], onDelete: Cascade)
+  sellerId       String
+  seller         User        @relation("SellerChats", fields: [sellerId], references: [id], onDelete: Cascade)
+  messages       Message[]
+  createdAt      DateTime    @default(now())
+
+  @@unique([buyerId, sellerId])
+  @@index([condominiumId])
+  @@map("conversations") // Rename table in PostgreSQL to conversations (meets Conversation model requirement)
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  chatId      String
+  chat        Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  senderId    String
+  sender      User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  messageText String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+// -------------------------------------------------------------
+// TRUST, COMPLIANCE, & MODERATION MODULE
+// -------------------------------------------------------------
+
+model Review {
+  id         String   @id @default(uuid())
+  reviewerId String?
+  reviewer   User?    @relation("UserReviews", fields: [reviewerId], references: [id], onDelete: SetNull)
+  sellerId   String
+  seller     Seller   @relation("SellerReviews", fields: [sellerId], references: [id], onDelete: Cascade)
+  rating     Int
+  reviewText String?
+  createdAt  DateTime @default(now())
+}
+
+enum ReportStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+model Report {
+  id                String       @id @default(uuid())
+  condominiumId     String
+  condominium       Condominium  @relation(fields: [condominiumId], references: [id])
+  reporterId        String?
+  reporter          User?        @relation("Reporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  reportedUserId    String?
+  reportedUser      User?        @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  reportedListingId String?
+  reportedListing   Listing?     @relation(fields: [reportedListingId], references: [id], onDelete: Cascade)
+  reason            String
+  status            ReportStatus @default(OPEN)
+  resolutionNotes   String?
+  resolvedById      String?
+  resolvedBy        User?        @relation("Resolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime     @default(now())
+
+  @@index([condominiumId])
+}
+
+model SellerVerification {
+  id            String      @id @default(uuid())
+  sellerId      String
+  seller        Seller      @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  status        String      @default("PENDING") // PENDING, APPROVED, REJECTED
+  notes         String?
+  verifiedAt    DateTime?
+  verifiedById  String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([sellerId])
+}
+
+model AuditLog {
+  id             String      @id @default(uuid())
+  condominiumId  String
+  condominium    Condominium @relation(fields: [condominiumId], references: [id])
+  adminId        String?
+  admin          User?       @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  actionType     String
+  targetId       String
+  details        String?
+  ipAddress      String?
+  createdAt      DateTime    @default(now())
+
+  @@index([condominiumId])
+}
+
+// -------------------------------------------------------------
+// UPGRADES & FUTURE PLUG-IN MODULES
+// -------------------------------------------------------------
+
+model ModuleSetting {
+  id             String      @id @default(uuid())
+  condominiumId  String
+  condominium    Condominium @relation(fields: [condominiumId], references: [id])
+  moduleName     String      // e.g. "FACILITY_BOOKING", "PET_COMMUNITY"
+  isEnabled      Boolean     @default(false)
+  config         Json?       // Module-specific feature flags
+}
+
+model Facility {
+  id             String      @id @default(uuid())
+  condominiumId  String
+  condominium    Condominium @relation(fields: [condominiumId], references: [id])
+  name           String      // e.g. "Sky Pool", "Co-Working Room"
+  description    String?
+  capacity       Int
+  bookings       Booking[]
+}
+
+model Booking {
+  id             String   @id @default(uuid())
+  facilityId     String
+  facility       Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startTime      DateTime
+  endTime        DateTime
+  status         String   @default("CONFIRMED") // PENDING, CONFIRMED, CANCELLED
+}
+
+model Parcel {
+  id             String      @id @default(uuid())
+  condominiumId  String
+  condominium    Condominium @relation(fields: [condominiumId], references: [id])
+  receiverId     String
+  receiver       User        @relation("ParcelReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  trackingNumber String?
+  courierCompany String
+  status         String      @default("RECEIVED") // RECEIVED, CLAIMED
+  receivedAt     DateTime    @default(now())
+  claimedAt      DateTime?
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  message       String
+  isRead        Boolean     @default(false)
+  link          String?
+  type          String      // e.g. "chat", "order", "system"
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([isRead])
+}
