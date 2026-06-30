@@ -4,6 +4,13 @@ const argon2 = require('argon2');
 const prisma = new PrismaClient();
 
 async function main() {
+  // Check if database is already seeded to prevent data loss on auto-deploys
+  const condoCount = await prisma.condominium.count();
+  if (condoCount > 0) {
+    console.log('Database already contains condominium records. Skipping seeding to protect existing user data.');
+    return;
+  }
+
   console.log('Seeding Nestly PostgreSQL Database (Multi-Tenant)...');
 
   // 1. Clean existing records (new models first due to foreign key constraints)
